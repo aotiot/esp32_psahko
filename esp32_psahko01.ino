@@ -7,30 +7,31 @@
 #include <vector>
 
 // WiFi-tiedot
-const char* ssid = "ssid";
-const char* password = "password";
+const char* ssid = "iottijotti";
+const char* password = "iotiotiot";
 
 // LED-asetukset
-#define LED_PIN     2
-#define LED_WIDTH   5
-#define LED_HEIGHT  5
-#define NUM_LEDS    (LED_WIDTH * LED_HEIGHT)
-#define BRIGHTNESS  51
+#define LED_PIN 2
+#define LED_WIDTH 5
+#define LED_HEIGHT 5
+#define NUM_LEDS (LED_WIDTH * LED_HEIGHT)
+#define BRIGHTNESS 51
 CRGB leds[NUM_LEDS];
 
 // ⏰ Korvaava timegm()
-time_t my_timegm(struct tm *tm) {
-  char *tz = getenv("TZ");
+time_t my_timegm(struct tm* tm) {
+  char* tz = getenv("TZ");
   setenv("TZ", "", 1);
   tzset();
   time_t t = mktime(tm);
-  if (tz) setenv("TZ", tz, 1); else unsetenv("TZ");
+  if (tz) setenv("TZ", tz, 1);
+  else unsetenv("TZ");
   tzset();
   return t;
 }
 
 // Kesäajan tarkistus
-bool isSummerTime(struct tm *t) {
+bool isSummerTime(struct tm* t) {
   int month = t->tm_mon + 1;
   int day = t->tm_mday;
   int wday = t->tm_wday;
@@ -59,9 +60,9 @@ int getLevelForPrice(float price) {
 }
 
 CRGB getColorForLevel(int level) {
-  switch(level) {
+  switch (level) {
     case 0: return CRGB::Green;
-    case 1: return CRGB(100,255,0);
+    case 1: return CRGB(100, 255, 0);
     case 2: return CRGB::Yellow;
     case 3: return CRGB::Orange;
     case 4: return CRGB::Red;
@@ -147,24 +148,25 @@ void showLivePrices() {
   time_t localNow = getLocalTimeWithOffset(nowUTC);
 
   JsonArray prices = doc["prices"];
-  std::vector<JsonObject> future;
+  std::vector<JsonObject> relevant;
 
   for (JsonObject p : prices) {
     time_t st = parseISOTime(p["startDate"]);
-    if (st >= localNow) {
-      future.push_back(p);
+    time_t et = parseISOTime(p["endDate"]);
+    if (et > nowUTC) { // Tunti on meneillään tai tuleva
+      relevant.push_back(p);
     }
   }
 
-  std::sort(future.begin(), future.end(), [](const JsonObject& a, const JsonObject& b) {
+  std::sort(relevant.begin(), relevant.end(), [](const JsonObject& a, const JsonObject& b) {
     return parseISOTime(a["startDate"]) < parseISOTime(b["startDate"]);
   });
 
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  Serial.println("📊 Seuraavat 5 tuntihintaa:");
+  Serial.println("📊 Meneillään oleva ja seuraavat 4 tuntia:");
 
-  for (int x = 0; x < 5 && x < future.size(); x++) {
-    JsonObject p = future[x];
+  for (int x = 0; x < 5 && x < relevant.size(); x++) {
+    JsonObject p = relevant[x];
     float price = p["price"];
     time_t ts = parseISOTime(p["startDate"]);
     time_t localTs = getLocalTimeWithOffset(ts);
@@ -174,14 +176,20 @@ void showLivePrices() {
     char tstr[25];
     strftime(tstr, sizeof(tstr), "%Y-%m-%d %H:%M", &lt);
     int level = getLevelForPrice(price);
+
     Serial.printf("⏰ %s | %.3f €/kWh | Taso %d\n", tstr, price, level);
 
-    for (int y = 0; y < LED_HEIGHT; y++) {
-      int idx = xyToIndex(x, y);
-      if (price < 0) {
-        leds[xyToIndex(x, 0)] = CRGB(180, 255, 180); // alarivi: vihreä
-        leds[xyToIndex(x, 4)] = CRGB::Red;           // ylin: punainen
-      } else {
+    if (price < 0) {
+      // Vihreä ylä- ja alarivi
+      leds[xyToIndex(x, 0)] = CRGB::Green;
+      leds[xyToIndex(x, LED_HEIGHT - 1)] = CRGB::Green;
+      for (int y = 1; y < LED_HEIGHT - 1; y++) {
+        leds[xyToIndex(x, y)] = CRGB::Black;
+      }
+    } else {
+      // Värjätään tasokorkeuden mukaan
+      for (int y = 0; y < LED_HEIGHT; y++) {
+        int idx = xyToIndex(x, y);
         leds[idx] = (y <= level) ? getColorForLevel(level) : CRGB::Black;
       }
     }
@@ -190,6 +198,7 @@ void showLivePrices() {
   FastLED.show();
   Serial.println("💡 LED-näyttö päivitetty.\n");
 }
+
 
 void setup() {
   Serial.begin(115200);
@@ -212,6 +221,6 @@ void setup() {
 }
 
 void loop() {
-  delay(30 * 60 * 1000); // päivitä kerran tunnissa
+  delay(30 * 60 * 1000);  // päivitä kerran tunnissa
   showLivePrices();
 }
