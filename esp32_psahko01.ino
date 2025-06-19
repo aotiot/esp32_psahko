@@ -7,8 +7,8 @@
 #include <vector>
 
 // WiFi-tiedot
-const char* ssid = "iottijotti";
-const char* password = "iotiotiot";
+const char* ssid = "ssid";
+const char* password = "password";
 
 // LED-asetukset
 #define LED_PIN 2
