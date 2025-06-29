@@ -1,3 +1,8 @@
+// lisää koodiin kohta jossa esp luo wLan-ap:n, html sivu joka kysyy ssid/password johon liitytään.
+// tallenna tiedot pysyvästi esp:n muistiin, ellei tallennettua wlania löydy käynnnistettäessä, käynnistä AP ja kysy uudestaan
+// kun tätä tehdään niin vilkuta jotain kuviota ledeillä
+// muista aina palaute käyttäjälle jollain mekanismillä
+
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
